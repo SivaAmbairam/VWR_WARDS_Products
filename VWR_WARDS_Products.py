@@ -115,43 +115,41 @@ if __name__ == '__main__':
                                 print(product_url)
                                 split_href = str(product_url).rsplit('/', 1)[0].split('product/')[-1].strip()
                                 request_url = f'https://us.vwr.com/store/services/catalog/json/stiboOrderTableRender.jsp?productId={split_href}&catalogNumber=&discontinuedflag=&hasItemPages=false&specialCertRender=false&staticPage='
-                                if product_url in read_log_file():
-                                    continue
                                 product_request = get_soup(request_url, headers)
                                 if product_request is None:
                                     continue
                                 product_content = product_request.find_all('tr', class_='product-row-main')
                                 for single_data in product_content:
                                     if single_data.find('td', attrs={'data-title': 'VWR Catalog Number'}):
+                                        '''PRODUCT ID'''
+                                        product_item = single_data.find('td', attrs={'data-title': 'VWR Catalog Number'}).extract()
+                                        try:
+                                            extract_tag = single_data.find('td', attrs={'data-title':'Unit'}).extract()
+                                        except:
+                                            extract_tag = ''
+                                        try:
+                                            other_extract = single_data.find('td', attrs={'data-title':'Quantity'}).extract()
+                                        except:
+                                            other_extract = ''
+                                        try:
+                                            price_extract = single_data.find('td', attrs={'data-title': 'Price'}).extract()
+                                        except:
+                                            price_extract = ''
                                         '''PRODUCT NAME'''
-                                        if single_data.find('td', attrs={'data-title': 'Description'}):
-                                            description_name = single_data.find('td', attrs={'data-title': 'Description'}).text.strip()
-                                            if re.search('^\d+', str(description_name)):
-                                                description_name = f'{main_name} {description_name}'
-                                            else:
-                                                description_name = description_name
-                                            if single_data.find('td', attrs={'data-title': 'Color'}):
-                                                color_name = single_data.find('td',
-                                                                              attrs={'data-title': 'Color'}).text.strip()
-                                                product_name = f'{description_name} {color_name}'
-                                            else:
-                                                product_name = description_name
-                                        elif single_data.find('td', attrs={'data-title': 'Volume'}):
-                                            inner_name = single_data.find('td', attrs={'data-title': 'Volume'}).text.strip()
-                                            product_name = f'{main_name}-{inner_name}'
-                                        elif single_data.find('td', attrs={'data-title': 'Size'}):
-                                            inner_name = single_data.find('td', attrs={'data-title': 'Size'}).text.strip()
-                                            product_name = f'{main_name}-{inner_name}'
-                                        elif single_data.find('td', attrs={'data-title': 'Size'}):
-                                            inner_name = single_data.find('td', attrs={'data-title': 'Length'}).text.strip()
-                                            product_name = f'{main_name}-{inner_name}'
-                                        else:
+                                        try:
+                                            data_tag = single_data.find_all('td')
+                                            name_list = []
+                                            for single_title in data_tag:
+                                                content_text = single_title.text.strip()
+                                                name_list.append(content_text)
+                                            product_name = ' '.join(name_list)
+                                        except:
                                             product_name = main_name
                                         '''PRODUCT QUANTITY'''
                                         product_quantity = '1'
-                                        '''PRODUCT ID'''
-                                        product_item = single_data.find('td', attrs={'data-title': 'VWR Catalog Number'})
                                         product_id = strip_it(product_item.text)
+                                        if product_id in read_log_file():
+                                            continue
                                         id_tag = product_item.find('span')['id'].replace("['", '').replace("']", '').split('_', 1)[-1].split('_', 1)[0].strip()
                                         product_req_url = f'https://us.vwr.com/store/services/pricing/json/skuPricing.jsp?skuIds={id_tag}&salesOrg=8000&salesOffice=0000&profileLocale=en_US&promoCatalogNumber=&promoCatalogNumberForSkuId=&forcePromo=false'
                                         price_request = get_json_response(product_req_url, headers)
@@ -166,5 +164,5 @@ if __name__ == '__main__':
                                                 articles_df.to_csv(f'{file_name}.csv', index=False, header=False, mode='a')
                                             else:
                                                 articles_df.to_csv(f'{file_name}.csv', index=False)
-                                            write_visited_log(product_url)
+                                            write_visited_log(product_id)
                 write_visited_log(main_url)
