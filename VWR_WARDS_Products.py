@@ -2,6 +2,37 @@ import re
 from zenrows import ZenRowsClient
 from module_package import *
 
+
+@retry
+def get_zenrowa(url, params=None):
+    client = ZenRowsClient('b34905fe71355edb294fe365c5f4c1898db1a954')
+    r = client.get(url, params = params)
+    if r.status_code == 200:
+        soup = BeautifulSoup(r.text, 'html.parser')
+        return soup
+    elif 499 >= r.status_code >= 400:
+        print(f'client error response, status code {r.status_code} \nrefer: {r.url}')
+        status_log(r)
+    elif 599 >= r.status_code >= 500:
+        print(f'server error response, status code {r.status_code} \nrefer: {r.url}')
+        count = 1
+        while count != 10:
+            print('while', count)
+            client = ZenRowsClient("b34905fe71355edb294fe365c5f4c1898db1a954")
+            r = client.get(url, params=params)
+            print('status_code: ', r.status_code)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, 'html.parser')
+                return soup
+            else:
+                print('retry ', count)
+                count += 1
+                time.sleep(count * 2)
+        else:
+            status_log(r)
+            return None
+
+
 if __name__ == '__main__':
     timestamp = datetime.now().date().strftime('%Y%m%d')
     file_name = os.path.basename(__file__).rstrip('.py')
@@ -16,6 +47,7 @@ if __name__ == '__main__':
         inner_content = single_content.find_all('a')
         for single_url in inner_content:
             if 'antibodies/3617058' not in str(single_url):
+                product_category = single_url.text.strip()
                 main_url = f'{base_url}{single_url["href"]}'
                 print(f'main_url---------------->{main_url}')
                 if main_url in read_log_file():
@@ -37,9 +69,7 @@ if __name__ == '__main__':
                         #     if page_link in read_log_file():
                         #         continue
                         #     print(f'page_link---------->{page_link}')
-                        #     client = ZenRowsClient("fc1986867778e315fafa412073e0816b3661753e")
-                        #     params = {"js_render": "true", "premium_proxy": "true"}
-                        #     response = client.get(page_link, params=params)
+                        #     response = get_zenrowa(page_link, params = {'js_render': 'true', "premium_proxy": "true", "proxy_country": "us"})
                         #     page_soup = BeautifulSoup(response.text, 'html.parser')
                         #     '''PRODUCT URL'''
                         #     url_href = page_soup.find_all('h2', class_='search-item__title h4')
@@ -54,40 +84,44 @@ if __name__ == '__main__':
                         #         product_request = get_soup(request_url, headers)
                         #         if product_request is None:
                         #             continue
-                        #         product_content = product_request.find_all('table',
-                        #                                                    class_='table-stack table table-responsive table-product mb-2')
+                        #         product_content = product_request.find_all('table', class_='table-stack table table-responsive table-product mb-2')
                         #         for single_product_content in product_content:
                         #             inner_data = single_product_content.find_all('tr', class_='product-row-main')
                         #             for single_data in inner_data:
                         #                 if single_data.find('td', attrs={'data-title': 'VWR Catalog Number'}):
                         #                     '''PRODUCT NAME'''
-                        #                     if single_data.find('td', attrs={'data-title': 'Description'}):
-                        #                         description_name = single_data.find('td', attrs={
-                        #                             'data-title': 'Description'}).text.strip()
-                        #                         if re.search('^\d+', str(description_name)):
-                        #                             description_name = f'{main_name} {description_name}'
+                        #                     product_item = single_data.find('td', attrs={'data-title': 'VWR Catalog Number'}).extract()
+                        #                     try:
+                        #                         extract_tag = single_data.find('td', attrs={'data-title': 'Unit'}).extract()
+                        #                         inner_extract = single_data.find('td', attrs={'data-title': 'Supplier No.'}).extract()
+                        #                     except:
+                        #                         extract_tag = ''
+                        #                         inner_extract = ''
+                        #                     try:
+                        #                         other_extract = single_data.find('td', attrs={'data-title': 'Quantity'}).extract()
+                        #                     except:
+                        #                         other_extract = ''
+                        #                     try:
+                        #                         price_extract = single_data.find('td', attrs={'data-title': 'Price'}).extract()
+                        #                     except:
+                        #                         price_extract = ''
+                        #                     '''PRODUCT NAME'''
+                        #                     try:
+                        #                         data_tag = single_data.find_all('td')
+                        #                         name_list = []
+                        #                         for single_title in data_tag:
+                        #                             content_text = single_title.text.strip()
+                        #                             name_list.append(content_text)
+                        #                         product_names = ' '.join(name_list)
+                        #                         if main_name in product_names:
+                        #                             product_name = product_names
                         #                         else:
-                        #                             description_name = description_name
-                        #                         if single_data.find('td', attrs={'data-title': 'Color'}):
-                        #                             color_name = single_data.find('td', attrs={'data-title': 'Color'}).text.strip()
-                        #                             product_name = f'{description_name} {color_name}'
-                        #                         else:
-                        #                             product_name = description_name
-                        #                     elif single_data.find('td', attrs={'data-title': 'Volume'}):
-                        #                         inner_name = single_data.find('td', attrs={'data-title': 'Volume'}).text.strip()
-                        #                         product_name = f'{main_name}-{inner_name}'
-                        #                     elif single_data.find('td', attrs={'data-title': 'Size'}):
-                        #                         inner_name = single_data.find('td', attrs={'data-title': 'Size'}).text.strip()
-                        #                         product_name = f'{main_name}-{inner_name}'
-                        #                     elif single_data.find('td', attrs={'data-title': 'Size'}):
-                        #                         inner_name = single_data.find('td', attrs={'data-title': 'Length'}).text.strip()
-                        #                         product_name = f'{main_name}-{inner_name}'
-                        #                     else:
+                        #                             product_name = f'{main_name} {product_names}'
+                        #                     except:
                         #                         product_name = main_name
                         #                     '''PRODUCT QUANTITY'''
                         #                     product_quantity = '1'
                         #                     '''PRODUCT ID'''
-                        #                     product_item = single_data.find('td', attrs={'data-title': 'VWR Catalog Number'})
                         #                     product_id = strip_it(product_item.text)
                         #                     id_tag = product_item.find('span')['id'].replace("['", '').replace("']", '').split('_', 1)[-1].split('_', 1)[0].strip()
                         #                     product_req_url = f'https://us.vwr.com/store/services/pricing/json/skuPricing.jsp?skuIds={id_tag}&salesOrg=8000&salesOffice=0000&profileLocale=en_US&promoCatalogNumber=&promoCatalogNumberForSkuId=&forcePromo=false'
@@ -125,8 +159,10 @@ if __name__ == '__main__':
                                         product_item = single_data.find('td', attrs={'data-title': 'VWR Catalog Number'}).extract()
                                         try:
                                             extract_tag = single_data.find('td', attrs={'data-title':'Unit'}).extract()
+                                            inner_extract = single_data.find('td', attrs={'data-title':'Supplier No.'}).extract()
                                         except:
                                             extract_tag = ''
+                                            inner_extract = ''
                                         try:
                                             other_extract = single_data.find('td', attrs={'data-title':'Quantity'}).extract()
                                         except:
@@ -142,7 +178,11 @@ if __name__ == '__main__':
                                             for single_title in data_tag:
                                                 content_text = single_title.text.strip()
                                                 name_list.append(content_text)
-                                            product_name = ' '.join(name_list)
+                                            product_names = ' '.join(name_list)
+                                            if main_name in product_names:
+                                                product_name = product_names
+                                            else:
+                                                product_name = f'{main_name} {product_names}'
                                         except:
                                             product_name = main_name
                                         '''PRODUCT QUANTITY'''
@@ -156,7 +196,7 @@ if __name__ == '__main__':
                                         for single_price in price_request:
                                             product_price = single_price['salePrice']
                                             print('current datetime------>', datetime.now())
-                                            dictionary = get_dictionary(product_ids=product_id, product_names=product_name, product_quantities=product_quantity, product_prices=product_price, product_urls=product_url)
+                                            dictionary = get_dictionary(product_category=product_category, product_sub_category='NA', product_ids=product_id, product_names=product_name, product_quantities=product_quantity, product_prices=product_price, product_urls=product_url)
                                             articles_df = pd.DataFrame([dictionary])
                                             articles_df.drop_duplicates(subset=['product_id', 'product_name'], keep='first',
                                                                         inplace=True)
